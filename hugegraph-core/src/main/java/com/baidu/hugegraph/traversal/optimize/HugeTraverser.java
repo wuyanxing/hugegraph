@@ -33,6 +33,7 @@ import javax.ws.rs.core.MultivaluedMap;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.tinkerpop.gremlin.structure.Edge;
+import org.apache.tinkerpop.gremlin.util.iterator.IteratorUtils;
 
 import com.baidu.hugegraph.HugeGraph;
 import com.baidu.hugegraph.backend.id.Id;
@@ -57,6 +58,10 @@ public class HugeTraverser {
 
     public HugeTraverser(HugeGraph graph) {
         this.graph = graph;
+    }
+
+    public HugeGraph graph() {
+        return this.graph;
     }
 
     public List<Id> shortestPath(Id sourceV, Id targetV, Directions dir,
@@ -263,9 +268,14 @@ public class HugeTraverser {
         return all;
     }
 
-    private Set<Id> adjacentVertices(Set<Id> vertices, Directions dir,
-                                     Id label, Set<Id> excluded,
-                                     long degree, long limit) {
+    protected Set<Id> adjacentVertices(Id sourceV, Directions dir, Id label) {
+        return this.adjacentVertices(ImmutableSet.of(sourceV), dir, label,
+                                     null, NO_LIMIT, NO_LIMIT);
+    }
+
+    protected Set<Id> adjacentVertices(Set<Id> vertices, Directions dir,
+                                       Id label, Set<Id> excluded,
+                                       long degree, long limit) {
         if (limit == 0) {
             return ImmutableSet.of();
         }
@@ -289,8 +299,8 @@ public class HugeTraverser {
         return neighbors;
     }
 
-    private Iterator<Edge> edgesOfVertex(Id source, Directions dir,
-                                         Id label, long limit) {
+    protected Iterator<Edge> edgesOfVertex(Id source, Directions dir,
+                                           Id label, long limit) {
         Id[] labels = {};
         if (label != null) {
             labels = new Id[]{label};
@@ -301,6 +311,11 @@ public class HugeTraverser {
             query.limit(limit);
         }
         return this.graph.edges(query);
+    }
+
+    protected long degreeOfVertex(Id source, Directions dir, Id label) {
+        return IteratorUtils.count(this.edgesOfVertex(source, dir, label,
+                                                      NO_LIMIT));
     }
 
     private Id getEdgeLabelId(Object label) {
