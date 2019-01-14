@@ -42,11 +42,12 @@ import com.baidu.hugegraph.schema.PropertyKey;
 import com.baidu.hugegraph.schema.VertexLabel;
 import com.baidu.hugegraph.traversal.algorithm.HugeTraverser;
 import com.baidu.hugegraph.traversal.optimize.TraversalUtil;
+import com.baidu.hugegraph.util.JsonUtil;
 import com.google.common.collect.ImmutableMap;
 
 public class JsonSerializer implements Serializer {
 
-    private GraphSONWriter writer;
+    private final GraphSONWriter writer;
 
     private static final int BUF_SIZE = 128;
     private static final int LBUF_SIZE = 1024;
@@ -68,7 +69,7 @@ public class JsonSerializer implements Serializer {
     private String writeList(String label, List<?> list) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream(LBUF_SIZE)) {
             out.write(String.format("{\"%s\": ", label).getBytes(API.CHARSET));
-            this.writer.writeObject(out, list);
+            out.write(JsonUtil.toJson(list).getBytes(API.CHARSET));
             out.write("}".getBytes(API.CHARSET));
             return out.toString(API.CHARSET);
         } catch (Exception e) {
@@ -76,7 +77,8 @@ public class JsonSerializer implements Serializer {
         }
     }
 
-    private String writeList(String label, Iterator<?> itor, boolean paging) {
+    private String writeIterator(String label, Iterator<?> itor,
+                                 boolean paging) {
         try (ByteArrayOutputStream out = new ByteArrayOutputStream(LBUF_SIZE)) {
             out.write("{".getBytes(API.CHARSET));
 
@@ -90,7 +92,7 @@ public class JsonSerializer implements Serializer {
                 } else {
                     first = false;
                 }
-                this.writer.writeObject(out, itor.next());
+                out.write(JsonUtil.toJson(itor.next()).getBytes(API.CHARSET));
             }
             out.write("]".getBytes(API.CHARSET));
 
@@ -179,7 +181,7 @@ public class JsonSerializer implements Serializer {
 
     @Override
     public String writeVertices(Iterator<Vertex> vertices, boolean paging) {
-        return writeList("vertices", vertices, paging);
+        return this.writeIterator("vertices", vertices, paging);
     }
 
     @Override
@@ -189,7 +191,7 @@ public class JsonSerializer implements Serializer {
 
     @Override
     public String writeEdges(Iterator<Edge> edges, boolean paging) {
-        return writeList("edges", edges, paging);
+        return this.writeIterator("edges", edges, paging);
     }
 
     @Override
@@ -211,7 +213,7 @@ public class JsonSerializer implements Serializer {
         }
         Map<String, Object> results = ImmutableMap.of(name, pathList,
                                                       "vertices", vertices);
-        return writeObject(results);
+        return JsonUtil.toJson(results);
     }
 
     @Override
