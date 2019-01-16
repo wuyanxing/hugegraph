@@ -408,7 +408,6 @@ public class ConditionQuery extends IdQuery {
         return this.optimizedType;
     }
 
-
     public void registerResultsFilter(Function<HugeElement, Boolean> filter) {
         this.resultsFilter = filter;
 
