@@ -193,14 +193,19 @@ public class RocksDBTable extends BackendTable<Session, BackendEntry> {
                             "Invalid scan with multi conditions: %s", query);
             Relation scan = query.relations().iterator().next();
             Shard shard = (Shard) scan.value();
-            return this.queryByRange(session, shard);
+            return this.queryByRange(session, shard, query.page());
         }
         throw new NotSupportException("query: %s", query);
     }
 
-    protected BackendColumnIterator queryByRange(Session session, Shard shard) {
+    protected BackendColumnIterator queryByRange(Session session, Shard shard,
+                                                 String page) {
         byte[] start = this.shardSpliter.position(shard.start());
         byte[] end = this.shardSpliter.position(shard.end());
+        if (page != null && !page.isEmpty()) {
+            byte[] position = PageState.fromString(page).position();
+            return session.scan(this.table(), position, end);
+        }
         return session.scan(this.table(), start, end);
     }
 

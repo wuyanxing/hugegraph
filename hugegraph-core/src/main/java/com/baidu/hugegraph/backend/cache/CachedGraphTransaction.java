@@ -34,6 +34,7 @@ import com.baidu.hugegraph.backend.store.BackendStore;
 import com.baidu.hugegraph.backend.tx.GraphTransaction;
 import com.baidu.hugegraph.config.CoreOptions;
 import com.baidu.hugegraph.config.HugeConfig;
+import com.baidu.hugegraph.iterator.Metadatable;
 import com.baidu.hugegraph.schema.IndexLabel;
 import com.baidu.hugegraph.structure.HugeEdge;
 import com.baidu.hugegraph.structure.HugeVertex;
@@ -112,17 +113,19 @@ public class CachedGraphTransaction extends GraphTransaction {
 
         Id id = new QueryId(query);
         @SuppressWarnings("unchecked")
-        List<HugeEdge> edges = (List<HugeEdge>) this.edgesCache.get(id);
-        if (edges == null) {
+        PagingList pagingList = (PagingList) this.edgesCache.get(id);
+        if (pagingList == null) {
+            Iterator<HugeEdge> itor = super.queryEdgesFromBackend(query);
             // Iterator can't be cached, caching list instead
-            edges = ImmutableList.copyOf(super.queryEdgesFromBackend(query));
+            List<HugeEdge> edges = ImmutableList.copyOf(itor);
+            String page = (String) ((Metadatable) itor).metadata("page");
+            pagingList = new PagingList(edges, page);
             if (edges.size() <= MAX_CACHE_EDGES_PER_QUERY) {
-                this.edgesCache.update(id, edges);
+                this.edgesCache.update(id, pagingList);
             }
         }
-        return edges.iterator();
+        return pagingList.iterator();
     }
-
 
     @Override
     protected void commitMutation2Backend(BackendMutation... mutations) {
@@ -161,6 +164,48 @@ public class CachedGraphTransaction extends GraphTransaction {
             if (indexLabel.baseType() == HugeType.EDGE_LABEL) {
                 // TODO: Use a more precise strategy to update the edge cache
                 this.edgesCache.clear();
+            }
+        }
+    }
+
+    private static class PagingList {
+
+        private List<HugeEdge> edges;
+        private String page;
+
+        public PagingList(List<HugeEdge> edges, String page) {
+            this.edges = edges;
+            this.page = page;
+        }
+
+        public PagingIterator iterator() {
+            return new PagingIterator(this.edges, this.page);
+        }
+
+        private static class PagingIterator
+                implements Iterator<HugeEdge>, Metadatable {
+
+            private Iterator<HugeEdge> iterator;
+            private String page;
+
+            private PagingIterator(List<HugeEdge> edges, String page) {
+                this.iterator = edges.iterator();
+                this.page = page;
+            }
+
+            @Override
+            public Object metadata(String s, Object... objects) {
+                return this.page;
+            }
+
+            @Override
+            public boolean hasNext() {
+                return this.iterator.hasNext();
+            }
+
+            @Override
+            public HugeEdge next() {
+                return this.iterator.next();
             }
         }
     }
